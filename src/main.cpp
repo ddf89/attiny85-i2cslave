@@ -1,14 +1,18 @@
 #include "main.h"
 
-volatile uint16_t adc_values[2];
-volatile uint8_t pwmc;
-uint8_t pwm;
+#ifdef CURRENT_LIMITER
+const bool currentlimitEnabled = true;
+#else
+const bool currentlimitEnabled = false;
+#endif
+
+volatile uint16_t adcBuffer[2];
+volatile uint8_t pwmRegVal = 0x00;
+uint8_t pwmOutVal = 0x00;
+volatile uint8_t currentlimitRegVal = 0x00;
 
 void setup() {
   analogReference(INTERNAL1V1);
-
-  pwm = 0x00;
-  pwmc = 0x00;
   
   pinMode(PB1, OUTPUT);
   analogWrite(PB1, 0x00);
@@ -19,22 +23,31 @@ void setup() {
   TCCR0B &= 0b00000001;
   TCCR1 &= 0b01000001;
 
-  TinyWireS.begin(addr);
+  TinyWireS.begin(i2cSlaveAddr);
   TinyWireS.onRequest(requestEvent); // Master wants to read
   TinyWireS.onReceive(receiveEvent);
 }
 
 void loop() {
-  if (pwm != pwmc) {
-    cli();
-    pwm = pwmc;
-    analogWrite(PB1, pwm);
-    sei();
+  cli();
+
+  adcBuffer[0] = analogRead(A3); // PB3
+  uint16_t currentReading = analogRead(A2); // PB4
+  adcBuffer[1] = currentReading;
+
+  if (currentlimitEnabled && currentlimitRegVal > 0) {
+    int diff = currentlimitRegVal - currentReading;
+
+    if (diff < -10) {
+      pwmRegVal = pwmOutVal - 1;
+    }
   }
 
-  cli();
-  adc_values[0] = analogRead(A3); // PB3
-  adc_values[1] = analogRead(A2); // PB4
+  if (pwmOutVal != pwmRegVal) {
+    pwmOutVal = pwmRegVal;
+    analogWrite(PB1, pwmOutVal);
+  }
+
   sei();
   
   TinyWireS_stop_check(); 
@@ -42,23 +55,30 @@ void loop() {
 
 void requestEvent() {
   // Send 4 bytes: [Ch1 High, Ch1 Low, Ch2 High, Ch2 Low]
-  TinyWireS.send(highByte(adc_values[0]));
-  TinyWireS.send(lowByte(adc_values[0]));
-  TinyWireS.send(highByte(adc_values[1]));
-  TinyWireS.send(lowByte(adc_values[1]));
+  TinyWireS.send(highByte(adcBuffer[0]));
+  TinyWireS.send(lowByte(adcBuffer[0]));
+  TinyWireS.send(highByte(adcBuffer[1]));
+  TinyWireS.send(lowByte(adcBuffer[1]));
 }
 
 void receiveEvent(uint8_t len) {
-  if (len > 1 && TinyWireS.receive() == 0x11) {
-    len--;
+  if (len < 2) return;
 
-    for (uint8_t i = 0; i < len; i++) {
-        uint8_t r = TinyWireS.receive();
+  uint8_t reg = TinyWireS.receive();
+  
+  len--;
 
-        if (i == len-1) {
-          pwmc = r;
-          return;
+  for (uint8_t i = 0; i < len; i++) {
+      uint8_t r = TinyWireS.receive();
+
+      if (i == len-1) {
+        if (reg == pwmRegister) {
+          pwmRegVal = r;
+        } else if (currentlimitEnabled && reg == limiterRegister) {
+          currentlimitRegVal = r;
         }
-    }
+
+        return;
+      }
   }
 }
