@@ -22,11 +22,17 @@ enum IcRole: byte {
     #define CURRENT_LIMITER
     #ifdef LIMITER_REGISTER
       const byte limiterRegister = static_cast<byte>(LIMITER_REGISTER);
+      const byte constantRegister = static_cast<byte>(CONSTANT_CURRENT_REGISTER);
+      const bool currentlimitEnabled = true;
     #else
       const byte limiterRegister = 0x12;
+      const byte constantRegister = 0x13;
+      const bool currentlimitEnabled = false;
     #endif
   #else
+    const bool currentlimitEnabled = false;
     const byte limiterRegister = 0x00;
+    const byte constantRegister = 0x00;
   #endif
 #else
   const IcRole r = IcRole::NONE;
@@ -37,6 +43,8 @@ enum IcRole: byte {
 #else
   const byte pwmRegister = 0x10;
 #endif
+
+const byte telemetryEnableRegister = 0x15;
 
 void setup();
 void loop();

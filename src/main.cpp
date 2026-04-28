@@ -1,16 +1,13 @@
 #include "main.h"
 
-#ifdef CURRENT_LIMITER
-const bool currentlimitEnabled = true;
-#else
-const bool currentlimitEnabled = false;
-#endif
-
 volatile uint16_t adcBuffer[2];
 volatile uint8_t pwmRegVal = 0x00;
 uint8_t pwmOutVal = 0x00;
 volatile uint16_t currentlimitRegVal = 0x00;
+volatile bool constantCurrentRegValEnabled = false;
 volatile bool updateFlag = false;
+
+volatile bool telemetryFlag = false;
 
 void setup() {
   analogReference(INTERNAL1V1);
@@ -36,8 +33,12 @@ void loop() {
   uint16_t currentReading = analogRead(A3);
   adcBuffer[0] = currentReading;
 
-  if (currentlimitEnabled && currentlimitRegVal > 0 && pwmOutVal > 0 && currentReading > (currentlimitRegVal + 10)) {
-    pwmRegVal = pwmOutVal - 1;
+  if ((currentlimitEnabled || constantCurrentRegValEnabled) && currentlimitRegVal > 0 && pwmOutVal > 0) {
+    if (currentReading > (currentlimitRegVal + 10)) {
+      pwmRegVal = pwmOutVal - 1;
+    } else if (constantCurrentRegValEnabled && (currentReading + 10) < currentlimitRegVal) {
+      pwmRegVal = pwmOutVal + 1;
+    }
   }
 
   if (pwmOutVal != pwmRegVal || updateFlag) {
@@ -52,6 +53,23 @@ void loop() {
 }
 
 void requestEvent() {
+  if (telemetryFlag) {
+    telemetryFlag = false;
+
+    TinyWireS.send(pwmOutVal);
+
+    if (!constantCurrentRegValEnabled) {
+      TinyWireS.send(0x00);
+    } else {
+      TinyWireS.send(0xff);
+    }
+
+    TinyWireS.send(highByte(currentlimitRegVal));
+    TinyWireS.send(lowByte(currentlimitRegVal));
+
+    return;
+  }
+
   // Send 4 bytes: [Ch1 High, Ch1 Low, Ch2 High, Ch2 Low]
   TinyWireS.send(highByte(adcBuffer[0]));
   TinyWireS.send(lowByte(adcBuffer[0]));
@@ -72,8 +90,21 @@ void receiveEvent(uint8_t len) {
     if (i == len-1) {
       if (reg == pwmRegister) {
         pwmRegVal = r;
+      } else if (reg == telemetryEnableRegister) {
+        if (r > 0x00) {
+          telemetryFlag = true;
+        } else {
+          telemetryFlag = false;
+        }
       } else if (currentlimitEnabled && reg == limiterRegister) {
         currentlimitRegVal = uint16_t(r / 255.0 * 1023.0);
+        updateFlag = true;
+      } else if (currentlimitEnabled && reg == constantRegister) {
+        if (r > 0x00) {
+          constantCurrentRegValEnabled = true;
+        } else {
+          constantCurrentRegValEnabled = false;
+        }
         updateFlag = true;
       }
 

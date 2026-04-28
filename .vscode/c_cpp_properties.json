@@ -10,7 +10,7 @@
             "includePath": [
                 "/workspaces/attiny85-i2cslave/include",
                 "/workspaces/attiny85-i2cslave/src",
-                "/workspaces/attiny85-i2cslave/.pio/libdeps/t85VICONTROL/TinyWireSio",
+                "/workspaces/attiny85-i2cslave/.pio/libdeps/t85TFCONTROL/TinyWireSio",
                 "/home/vscode/.platformio/packages/framework-arduino-avr-attiny/cores/tiny",
                 "/home/vscode/.platformio/packages/framework-arduino-avr-attiny/variants/tinyX5",
                 "/home/vscode/.platformio/packages/framework-arduino-avr-attiny/libraries/ATTinyCore/src",
@@ -29,7 +29,7 @@
                 "path": [
                     "/workspaces/attiny85-i2cslave/include",
                     "/workspaces/attiny85-i2cslave/src",
-                    "/workspaces/attiny85-i2cslave/.pio/libdeps/t85VICONTROL/TinyWireSio",
+                    "/workspaces/attiny85-i2cslave/.pio/libdeps/t85TFCONTROL/TinyWireSio",
                     "/home/vscode/.platformio/packages/framework-arduino-avr-attiny/cores/tiny",
                     "/home/vscode/.platformio/packages/framework-arduino-avr-attiny/variants/tinyX5",
                     "/home/vscode/.platformio/packages/framework-arduino-avr-attiny/libraries/ATTinyCore/src",
@@ -47,11 +47,9 @@
             "defines": [
                 "PLATFORMIO=60119",
                 "ARDUINO_AVR_ATTINYX5",
-                "I2C_SADDR=0x26",
-                "ROLE=0x01",
-                "WITH_CURRENT_LIMITER=0x01",
+                "I2C_SADDR=0x27",
+                "ROLE=0x02",
                 "PWM_REGISTER=0x11",
-                "LIMITER_REGISTER=0x12",
                 "F_CPU=8000000L",
                 "ARDUINO_ARCH_AVR",
                 "ARDUINO=10808",
