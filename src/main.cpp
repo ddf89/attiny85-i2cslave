@@ -9,7 +9,8 @@ const bool currentlimitEnabled = false;
 volatile uint16_t adcBuffer[2];
 volatile uint8_t pwmRegVal = 0x00;
 uint8_t pwmOutVal = 0x00;
-volatile uint8_t currentlimitRegVal = 0x00;
+volatile uint16_t currentlimitRegVal = 0x00;
+volatile bool updateFlag = false;
 
 void setup() {
   analogReference(INTERNAL1V1);
@@ -31,19 +32,16 @@ void setup() {
 void loop() {
   cli();
 
-  adcBuffer[0] = analogRead(A3); // PB3
-  uint16_t currentReading = analogRead(A2); // PB4
-  adcBuffer[1] = currentReading;
+  adcBuffer[1] = analogRead(A2);
+  uint16_t currentReading = analogRead(A3);
+  adcBuffer[0] = currentReading;
 
-  if (currentlimitEnabled && currentlimitRegVal > 0) {
-    int diff = currentlimitRegVal - currentReading;
-
-    if (diff < -10) {
-      pwmRegVal = pwmOutVal - 1;
-    }
+  if (currentlimitEnabled && currentlimitRegVal > 0 && pwmOutVal > 0 && currentReading > (currentlimitRegVal + 10)) {
+    pwmRegVal = pwmOutVal - 1;
   }
 
-  if (pwmOutVal != pwmRegVal) {
+  if (pwmOutVal != pwmRegVal || updateFlag) {
+    updateFlag = false;
     pwmOutVal = pwmRegVal;
     analogWrite(PB1, pwmOutVal);
   }
@@ -69,16 +67,17 @@ void receiveEvent(uint8_t len) {
   len--;
 
   for (uint8_t i = 0; i < len; i++) {
-      uint8_t r = TinyWireS.receive();
+    uint8_t r = TinyWireS.receive();
 
-      if (i == len-1) {
-        if (reg == pwmRegister) {
-          pwmRegVal = r;
-        } else if (currentlimitEnabled && reg == limiterRegister) {
-          currentlimitRegVal = r;
-        }
-
-        return;
+    if (i == len-1) {
+      if (reg == pwmRegister) {
+        pwmRegVal = r;
+      } else if (currentlimitEnabled && reg == limiterRegister) {
+        currentlimitRegVal = uint16_t(r / 255.0 * 1023.0);
+        updateFlag = true;
       }
+
+      return;
+    }
   }
 }
