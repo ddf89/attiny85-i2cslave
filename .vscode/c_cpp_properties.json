@@ -48,7 +48,6 @@
                 "PLATFORMIO=60119",
                 "ARDUINO_AVR_ATTINYX5",
                 "I2C_SADDR=0x27",
-                "ROLE=0x02",
                 "PWM_REGISTER=0x11",
                 "F_CPU=8000000L",
                 "ARDUINO_ARCH_AVR",

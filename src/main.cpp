@@ -3,11 +3,16 @@
 volatile uint16_t adcBuffer[2];
 volatile uint8_t pwmRegVal = 0x00;
 uint8_t pwmOutVal = 0x00;
+
+#ifdef CURRENT_LIMITER
 volatile uint16_t currentlimitRegVal = 0x00;
 volatile bool constantCurrentRegValEnabled = false;
 volatile bool updateFlag = false;
+#endif
 
+#ifdef WITH_TELEMETRY
 volatile bool telemetryFlag = false;
+#endif
 
 void setup() {
   analogReference(INTERNAL1V1);
@@ -30,19 +35,23 @@ void loop() {
   cli();
 
   adcBuffer[1] = analogRead(A2);
-  uint16_t currentReading = analogRead(A3);
-  adcBuffer[0] = currentReading;
+  uint16_t a3Reading = analogRead(A3);
+  adcBuffer[0] = a3Reading;
 
+  #ifdef CURRENT_LIMITER
   if ((currentlimitEnabled || constantCurrentRegValEnabled) && currentlimitRegVal > 0 && pwmOutVal > 0) {
-    if (currentReading > (currentlimitRegVal + 10)) {
+    if (a3Reading > (currentlimitRegVal + 5)) {
       pwmRegVal = pwmOutVal - 1;
-    } else if (constantCurrentRegValEnabled && (currentReading + 10) < currentlimitRegVal) {
+    } else if (constantCurrentRegValEnabled && (a3Reading + 5) < currentlimitRegVal) {
       pwmRegVal = pwmOutVal + 1;
     }
   }
 
   if (pwmOutVal != pwmRegVal || updateFlag) {
     updateFlag = false;
+  #else
+  if (pwmOutVal != pwmRegVal) {
+  #endif
     pwmOutVal = pwmRegVal;
     analogWrite(PB1, pwmOutVal);
   }
@@ -53,11 +62,13 @@ void loop() {
 }
 
 void requestEvent() {
+  #ifdef WITH_TELEMETRY
   if (telemetryFlag) {
     telemetryFlag = false;
 
     TinyWireS.send(pwmOutVal);
 
+    #ifdef CURRENT_LIMITER
     if (!constantCurrentRegValEnabled) {
       TinyWireS.send(0x00);
     } else {
@@ -66,9 +77,10 @@ void requestEvent() {
 
     TinyWireS.send(highByte(currentlimitRegVal));
     TinyWireS.send(lowByte(currentlimitRegVal));
-
+    #endif
     return;
   }
+  #endif
 
   // Send 4 bytes: [Ch1 High, Ch1 Low, Ch2 High, Ch2 Low]
   TinyWireS.send(highByte(adcBuffer[0]));
@@ -90,13 +102,9 @@ void receiveEvent(uint8_t len) {
     if (i == len-1) {
       if (reg == pwmRegister) {
         pwmRegVal = r;
-      } else if (reg == telemetryEnableRegister) {
-        if (r > 0x00) {
-          telemetryFlag = true;
-        } else {
-          telemetryFlag = false;
-        }
-      } else if (currentlimitEnabled && reg == limiterRegister) {
+      }
+      #if CURRENT_LIMITER
+      else if (currentlimitEnabled && reg == limiterRegister) {
         currentlimitRegVal = uint16_t(r / 255.0 * 1023.0);
         updateFlag = true;
       } else if (currentlimitEnabled && reg == constantRegister) {
@@ -107,6 +115,16 @@ void receiveEvent(uint8_t len) {
         }
         updateFlag = true;
       }
+      #endif
+      #ifdef WITH_TELEMETRY_REGISTER
+      else if (reg == telemetryEnableRegister) {
+        if (r > 0x00) {
+          telemetryFlag = true;
+        } else {
+          telemetryFlag = false;
+        }
+      }
+      #endif
 
       return;
     }

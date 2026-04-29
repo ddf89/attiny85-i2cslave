@@ -10,32 +10,11 @@
   const byte i2cSlaveAddr = 0x20;
 #endif
 
-enum IcRole: byte {
-  NONE = 0x00,
-  VI_CONTROL = 0x01,
-  TF_CONTROL = 0x02
-};
-
-#ifdef ROLE
-  const IcRole r = static_cast<IcRole>(ROLE);
-  #if (ROLE==0x01) && (WITH_CURRENT_LIMITER==0x01)
+#if i2cSlaveAddr==0x26 && defined(WITH_LIMITER_REGISTER)
     #define CURRENT_LIMITER
-    #ifdef LIMITER_REGISTER
-      const byte limiterRegister = static_cast<byte>(LIMITER_REGISTER);
-      const byte constantRegister = static_cast<byte>(CONSTANT_CURRENT_REGISTER);
-      const bool currentlimitEnabled = true;
-    #else
-      const byte limiterRegister = 0x12;
-      const byte constantRegister = 0x13;
-      const bool currentlimitEnabled = false;
-    #endif
-  #else
-    const bool currentlimitEnabled = false;
-    const byte limiterRegister = 0x00;
-    const byte constantRegister = 0x00;
-  #endif
-#else
-  const IcRole r = IcRole::NONE;
+    const byte limiterRegister = static_cast<byte>(LIMITER_REGISTER);
+    const byte constantRegister = static_cast<byte>(CONSTANT_CURRENT_REGISTER);
+    const bool currentlimitEnabled = true;
 #endif
 
 #ifdef PWM_REGISTER
@@ -44,7 +23,9 @@ enum IcRole: byte {
   const byte pwmRegister = 0x10;
 #endif
 
-const byte telemetryEnableRegister = 0x15;
+#ifdef WITH_TELEMETRY_REGISTER
+const byte telemetryEnableRegister = static_cast<byte>(WITH_TELEMETRY_REGISTER);
+#endif
 
 void setup();
 void loop();
